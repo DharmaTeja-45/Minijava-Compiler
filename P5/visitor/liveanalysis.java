@@ -28,7 +28,6 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
    Integer argcounter= 0;
 
 
-
    public void calculate_jumps(){
       for(blockinfo b: current_function.blocks){
          if(b.jump_block_name.equals("")== false){
@@ -127,13 +126,14 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
    }
 
    public void set_nums(functioninfo func){
+      // System.out.println("STACK_SIZE "+ func.stack_ptr);
       func.stack_ptr+= Math.max(0,func.num_args -4);
       func.total_stack_size= func.stack_ptr;
       if(!func.function_name.equals("MAIN")){
-         func.stack_ptr+= 8; //return address
+         func.total_stack_size+= 8; //return address
       }
       if(func.call_check){
-         func.stack_ptr+= 10; //saved registers
+         func.total_stack_size+= 10; //saved registers
       }
    }
 
@@ -164,11 +164,11 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
          func.activelist.remove(spill_inteval);
          spill_inteval.allocated_register= "-1";
          func.activelist.add(interval);
-         
+         Collections.sort(func.activelist, Comparator.comparingInt(a -> a.end_line));
          spill_inteval.stack_location= func.stack_ptr;
          func.stack_ptr++;
          func.stack_space.add(spill_inteval);
-         Collections.sort(func.activelist, Comparator.comparingInt(a -> a.end_line));
+         
       }
       else{
          interval.stack_location= func.stack_ptr;
@@ -185,6 +185,7 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
       for(intervalinfo interval: func.intervallist){
          expire(interval, func);
          if(func.activelist.size() == free_reg){
+            func.spilled_check= true;
             spill(interval, func);
          }
          else{
@@ -210,6 +211,7 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
          calculate_liverange(current_function);
          linear_scan(current_function);
          set_nums(current_function);
+         // System.out.println("debug");
          reset_registers();
       }
    }
@@ -503,6 +505,7 @@ public class liveanalysis<R,A> implements GJVisitor<R,A> {
       n.f3.accept(this, (A)arg2);
       n.f4.accept(this, argu);
       current_function.max_callee_args= Math.max(current_function.max_callee_args, argcounter);
+      current_function.call_check= true;
       return _ret;
    }
 

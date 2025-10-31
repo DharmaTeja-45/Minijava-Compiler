@@ -219,7 +219,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
       String alloc_reg= (String)n.f1.accept(this, argu);
       v0_status= false;
       label_status= true;
-      String label= (String)n.f2.accept(this, argu);
+      String label= current_function.function_name+"_"+(String)n.f2.accept(this, argu);
       label_status= false;
       System.out.println("\tCJUMP " + alloc_reg + " " + label);
       return _ret;
@@ -233,7 +233,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       label_status= true;
-      String label= (String)n.f1.accept(this, argu);
+      String label= current_function.function_name+"_"+(String)n.f1.accept(this, argu);
       label_status= false;
       System.out.println("\tJUMP " + label);
       return _ret;
@@ -449,8 +449,9 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
             System.out.println("\tMOVE a"+ (argcounter) + " " + alloc_reg);
          }
          else{
-            System.out.println("\tPASSARG " + (argcounter -4) + " " + alloc_reg);
+            System.out.println("\tPASSARG " + (argcounter -3) + " " + alloc_reg);
          }
+         argcounter ++;
       }
       return (R)alloc_reg;
    }
