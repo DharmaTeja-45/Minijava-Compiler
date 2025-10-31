@@ -1,0 +1,23 @@
+--- /home/dharma/cs3300/Minijava-Compiler/P5/expected_outputs/mustSpill.out	2025-11-01 04:46:09.958923145 +0530
++++ /home/dharma/cs3300/Minijava-Compiler/P5/outputs/mustSpill.out	2025-11-01 04:46:10.043653763 +0530
+@@ -16,20 +16,3 @@
+ 18
+ 17
+ 16
+-15
+-14
+-13
+-12
+-11
+-10
+-9
+-8
+-7
+-6
+-5
+-4
+-3
+-2
+-1
+-0
+-0

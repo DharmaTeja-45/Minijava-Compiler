@@ -1,0 +1,24 @@
+--- /home/dharma/cs3300/Minijava-Compiler/P5/expected_outputs/LinearSearch.out	2025-11-01 04:46:08.796544083 +0530
++++ /home/dharma/cs3300/Minijava-Compiler/P5/outputs/LinearSearch.out	2025-11-01 04:46:08.931320218 +0530
+@@ -1,15 +1,15 @@
+-10
++3
++5
++7
++9
+ 11
+-12
+ 13
+-14
+ 15
+-16
+ 17
+-18
++19
+ 9999
+ 0
+-1
++0
+ 1
+ 0
+ 55

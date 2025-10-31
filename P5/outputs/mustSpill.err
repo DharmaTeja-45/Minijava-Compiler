@@ -1,0 +1,3 @@
+ERROR: line 104: Printing null, exiting...
+Please check near the following source code: 
+         PRINT v1 (line:104 col:17)

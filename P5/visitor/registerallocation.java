@@ -19,7 +19,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
    blockinfo current_block= new blockinfo(1);
    functioninfo current_function= new functioninfo("main");
    public Map<String, functioninfo> function_map= new HashMap<String, functioninfo>();
-   ArrayList <String> registers= new ArrayList<String>(Arrays.asList("s0","s1","s2","s3","s4","s5","s6","s7","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9"));
+   ArrayList <String> registers= new ArrayList<String>(Arrays.asList("s0","s1","s2","s3","s4","s5","s6","s7","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9","v0","v1","a0","a1","a2","a3"));
    Integer free_reg= 18;
    Map<String, Integer> label_linemap= new HashMap<String, Integer>();
    boolean label_status= false;
@@ -29,10 +29,15 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
    Boolean v1_status= false;
    Boolean arg_check= false;
    void fun(String temp, String reg) {
+      //System.out.println(reg+" "+temp);
       String alloc_reg= "-1";
       if(current_function.interval_map.containsKey(temp)) {
          intervalinfo interval= current_function.interval_map.get(temp);
-         if(!interval.allocated_register.equals("-1")) {
+         if(interval.start_line > line_counter || interval.end_line < line_counter) {
+            alloc_reg= "v1";
+            System.out.println("\tMOVE " + alloc_reg + " " + reg);
+         }
+         else if(!interval.allocated_register.equals("-1")) {
             alloc_reg= current_function.interval_map.get(temp).allocated_register;
             System.out.println("\tMOVE " + alloc_reg + " " + reg);
          }
@@ -42,6 +47,10 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
             Integer i= Math.max(0,current_function.num_args -4)+ current_function.stack_ptr;
             System.out.println("\tASTORE SPILLEDARG " + i + " " + alloc_reg);
          }
+      }
+      else{
+         alloc_reg= "v1";
+         System.out.println("\tMOVE " + alloc_reg + " " + reg);
       }
    }
    public R visit(NodeList n, A argu) {
@@ -153,13 +162,43 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
 
       for(int i=0; i< current_function.num_args; i++) {
          if(i<4) {
-            fun("TEMP " + i, "a"+ i);
+            String var_name= "TEMP " + i;
+            String arg_reg= "a" + i;
+            if(current_function.interval_map.containsKey(var_name)) {
+               intervalinfo interval= current_function.interval_map.get(var_name);
+               if(!interval.allocated_register.equals("-1")) {
+                  String alloc_reg= interval.allocated_register;
+                  System.out.println("\tMOVE " + alloc_reg + " " + arg_reg);
+               }
+               else{
+                  System.out.println("\tMOVE v0 " + arg_reg);
+                  Integer stack_loc= Math.max(0,current_function.num_args -4)+ interval.stack_location;
+                  System.out.println("\tASTORE SPILLEDARG " + stack_loc + " v0");
+               }
+            }
+            else{
+               System.out.println("\tMOVE v1 " + arg_reg);
+            }
          }
       }
 
       for(int i=4; i< current_function.num_args; i++) {
          System.out.println("\tALOAD v0 SPILLEDARG " + (i-4));
-         fun("TEMP " + i, "v0");
+         String var_name= "TEMP " + i;
+         if(current_function.interval_map.containsKey(var_name)) {
+            intervalinfo interval= current_function.interval_map.get(var_name);
+            if(!interval.allocated_register.equals("-1")) {
+               String alloc_reg= interval.allocated_register;
+               System.out.println("\tMOVE " + alloc_reg + " v0");
+            }
+            else{
+               Integer stack_loc= Math.max(0,current_function.num_args -4)+ interval.stack_location;
+               System.out.println("\tASTORE SPILLEDARG " + stack_loc + " v0");
+            }
+         }
+         else{
+            System.out.println("\tMOVE v1 v0");
+         }
       }
       n.f4.accept(this, argu);
 
@@ -183,6 +222,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Stmt n, A argu) {
       R _ret=null;
+      line_counter++;
       n.f0.accept(this, argu);
       return _ret;
    }
@@ -290,6 +330,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
       label_status= true;
       String exp= (String)n.f2.accept(this, argu);
       label_status= false;
+      //System.out.println(exp+"hi");
       fun(var, exp);
       return _ret;
    }
@@ -328,11 +369,14 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
    public R visit(StmtExp n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
+      line_counter++;
       n.f1.accept(this, argu);
+      line_counter++;
       n.f2.accept(this, argu);
       String reg= (String)n.f3.accept(this, argu);
       System.out.println("\tMOVE v0 " + reg);
       n.f4.accept(this, argu);
+      line_counter++;
       return _ret;
    }
 
@@ -373,8 +417,10 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String alloc_reg= (String)n.f1.accept(this, argu);
-
-      return (R)("\tHALLOCATE " + alloc_reg);
+   // return HALLOCATE as an expression string (so it appears as the RHS of a MOVE)
+   // do not emit a standalone HALLOCATE statement here; the caller will place it
+   // correctly (e.g. MOVE dest HALLOCATE arg)
+   return (R)("HALLOCATE " + alloc_reg);
    }
 
    /**
@@ -384,13 +430,17 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
     */
    public R visit(BinOp n, A argu) {
       R _ret=null;
-      String op= (String)n.f0.accept(this, argu);
-      v1_status= true;
-      String left= (String)n.f1.accept(this, argu);
-      v1_status= false;
-      String right= (String)n.f2.accept(this, argu);
-      String ret= op+ " " + left + " " + right;
-      return (R)ret;
+         String op= (String)n.f0.accept(this, argu);
+         // evaluate left into v1 when possible
+         v1_status= true;
+         String left= (String)n.f1.accept(this, argu);
+         v1_status= false;
+         // evaluate right into v0 (default)
+         String right= (String)n.f2.accept(this, argu);
+
+         // emit the binary operation into v0 and return v0 as the result register
+         String binop = (op +" " + left + " " + right);
+         return (R)binop;
    }
 
    /**
@@ -473,6 +523,7 @@ public class registerallocation<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       String label= n.f0.toString();
       if(!label_status){
+         line_counter++;
          System.out.println(current_function.function_name + "_" + label);
       }
       return (R)label;

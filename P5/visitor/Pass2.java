@@ -45,11 +45,15 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
    }
 
    public void helper(String temp, String val_register){
+      //System.out.println(val_register+" "+temp);
       String var_name = temp;
       String alloc_register = "-1";
       if(curr_func.range_map.containsKey(var_name)){
          intervalAttr interval = curr_func.range_map.get(var_name);
-         if(!interval.allocated_register.equals("-1")){
+         if(interval.start_line > line_count || interval.end_line < line_count){
+            print("\tMOVE v1 " + val_register);
+         }
+         else if(!interval.allocated_register.equals("-1")){
             alloc_register = interval.allocated_register;
             print("\tMOVE " + alloc_register + " " + val_register);
          }
@@ -62,22 +66,24 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
          }
       }
       else{
-         // Variable not in range_map: it's not live here.
-         // Don't clobber a fixed temp register (v1) by moving every arg into it.
-         // Leave the value in the incoming register (val_register).
-         if(print_comments) print("// DEBUG: NOT LIVE");
-         // no MOVE emitted
+         // WHY??
+         // debug: not live
+         // if(print_comments) print("// DEBUG: NOT LIVE");
+         alloc_register = "v1";
+         print("\tMOVE " + alloc_register + " " + val_register);
       }
+
+      //System.out.println("done");
    }
 
    public void print_all(){
       for(Map.Entry<String, funcAttr> elem1 : func_list.entrySet()){
          funcAttr func = elem1.getValue();
-         System.out.println("FUNCTION " + func.name);
-         for(Map.Entry<String, intervalAttr> elem2 : func.range_map.entrySet()){
-            intervalAttr interval = elem2.getValue();
-            interval.print();
-         }
+            // diagnostic disabled: System.out.println("FUNCTION " + func.name);
+            for(Map.Entry<String, intervalAttr> elem2 : func.range_map.entrySet()){
+               intervalAttr interval = elem2.getValue();
+               // diagnostic disabled: interval.print();
+            }
       }
    }
 
@@ -180,12 +186,14 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
       print("END");
       n.f2.accept(this, argu);
       line_count ++;
-      if(curr_func.spilled_check) print("// SPILLED");
-      else print("// NOTSPILLED");
+   // debug: spilled info
+   // if(curr_func.spilled_check) print("// SPILLED");
+   // else print("// NOTSPILLED");
 
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
-      if(print_debug) print_all();
+   // debug: print_all disabled
+   // if(print_debug) print_all();
       return _ret;
    }
 
@@ -218,25 +226,52 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
       String func_name = (String) n.f0.f0.tokenImage;
       curr_func = func_list.get(func_name);
       curr_stack_pointer = curr_func.curr_stack_pointer;
+      // Diagnostic: print live-range allocations for this function to help debug register/stack mapping
+      
       print(func_name + " [" + curr_func.num_args + "] [" + curr_func.stack_capacity + "] [" + curr_func.max_args + "]");
 
       calle_store();
       line_count ++;
 
       // restore_args(curr_func);
-      String alloc_register = "-1";
+      // Restore arguments into their TEMP variables. Avoid using helper here
+      // because helper uses line_count checks that can prevent proper init of params.
       for(int i=0; i < Math.min(4, curr_func.num_args); i++){
          String var_name = "TEMP " + i;
-         String val_register = "a" + i;
-         helper(var_name, val_register);
+         String arg_reg = "a" + i;
+         if(curr_func.range_map.containsKey(var_name)){
+            intervalAttr interval = curr_func.range_map.get(var_name);
+            if(!interval.allocated_register.equals("-1")){
+               print("\tMOVE " + interval.allocated_register + " " + arg_reg);
+            } else {
+               // spill to stack
+               String tmp = "v0";
+               print("\tMOVE " + tmp + " " + arg_reg);
+               Integer index = Math.max(0, curr_func.num_args-4) + interval.stack_location;
+               print("\tASTORE SPILLEDARG " + index + " " + tmp);
+            }
+         } else {
+            // no interval info; place into v1 to be safe
+            print("\tMOVE v1 " + arg_reg);
+         }
       }
 
-      String source_register = "-1";
       for(int i = 4; i < curr_func.num_args; i++){
-         source_register = "v0";
+         String source_register = "v0";
          print("\tALOAD " + source_register + " SPILLEDARG " + (i-4));
          String var_name = "TEMP " + i;
-         helper(var_name, source_register);
+         if(curr_func.range_map.containsKey(var_name)){
+            intervalAttr interval = curr_func.range_map.get(var_name);
+            if(!interval.allocated_register.equals("-1")){
+               print("\tMOVE " + interval.allocated_register + " " + source_register);
+            } else {
+               Integer index = Math.max(0, curr_func.num_args-4) + interval.stack_location;
+               print("\tASTORE SPILLEDARG " + index + " " + source_register);
+            }
+         } else {
+            // fallback
+            print("\tMOVE v1 " + source_register);
+         }
       }
 
       n.f4.accept(this, argu);
@@ -374,14 +409,15 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
    // done
    public R visit(MoveStmt n, A argu) {
       R _ret=null;
-      if(print_comments) print("// DEBUG : " + line_count);
+   // debug: print commented out
+   // if(print_comments) print("// DEBUG : " + line_count);
       n.f0.accept(this, argu);
       String var_name = "TEMP " + (String) n.f1.f1.f0.tokenImage;
       String alloc_register = (String) n.f1.accept(this, argu);
       label_check = false;
       String exp_register = (String) n.f2.accept(this, argu);
       label_check = true;
-      
+      //System.out.println(exp_register+"hi");
       helper(var_name, exp_register);
       return _ret;
    }
@@ -546,14 +582,16 @@ public class Pass2<R,A> implements GJVisitor<R,A> {
          }
          else{
             Integer index = Math.max(0, curr_func.num_args - 4) + interval.stack_location;
+            // load spilled value into the chosen register (reg already set to v0 or v1)
             print("\tALOAD " + reg + " SPILLEDARG " + index);
-            reg = "v1";
+            // keep 'reg' as the register we just loaded into; do not overwrite it here
          }
       }
 
       if(count_args){
          arg_cnt ++;
-         if(debug) print("a"+(arg_cnt -1) + " == " + id_name);
+         // debug: argument mapping print disabled
+         // if(debug) print("a"+(arg_cnt -1) + " == " + id_name);
          if(arg_cnt <= 4) print("\tMOVE a" + (arg_cnt - 1) + " " + reg);
          else print("\tPASSARG " + (arg_cnt-4) + " " + reg);
       }

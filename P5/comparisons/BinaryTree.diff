@@ -1,0 +1,29 @@
+--- /home/dharma/cs3300/Minijava-Compiler/P5/expected_outputs/BinaryTree.out	2025-11-01 04:46:07.440363812 +0530
++++ /home/dharma/cs3300/Minijava-Compiler/P5/outputs/BinaryTree.out	2025-11-01 04:46:07.626813565 +0530
+@@ -1,26 +1,2 @@
+ 16
+ 100000000
+-8
+-16
+-4
+-8
+-12
+-14
+-16
+-20
+-24
+-28
+-1
+-1
+-1
+-0
+-1
+-4
+-8
+-14
+-16
+-20
+-24
+-28
+-0
+-0
