@@ -15,4 +15,8 @@ public class intervalinfo {
         this.stack_location = -1;
     }
 
+    public void print(){
+        System.out.println(temp_name + " {" + start_line + " - " + end_line + "}REGISTER: " + allocated_register + " STACK: " + stack_location);
+    }
+
 }

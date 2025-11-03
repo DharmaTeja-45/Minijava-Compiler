@@ -2,7 +2,6 @@ import java.util.Map;
 
 import syntaxtree.*;
 import visitor.*;
-import visitor.Pass1.funcAttr;
 
 public class P5 {
    public static void main(String [] args) {
