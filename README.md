@@ -1,1 +1,1 @@
-# Minijava-Compiler
+# Macrojava-Compiler
